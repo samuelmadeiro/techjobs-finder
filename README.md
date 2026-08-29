@@ -220,7 +220,7 @@ Requer JDK 21+, Maven e um PostgreSQL acessível.
 
 ```bash
 cd backend
-DATABASE_URL=jdbc:postgresql://localhost:5432/techjobs DATABASE_USER=techjobs DATABASE_PASSWORD=suasenha mvn spring-boot:run
+DATABASE_URL=jdbc:postgresql://localhost:5432/techjobs DATABASE_USER=techjobs DATABASE_PASSWORD=suasenha ./mvnw spring-boot:run
 ```
 
 Frontend em modo de desenvolvimento (Node 20+):
@@ -947,8 +947,8 @@ timeout, retry e a validação anti-SSRF.
 
 ```bash
 cd backend
-mvn test                                                       # tudo (integração usa Testcontainers, exige Docker)
-mvn test "-Dtest=!JobSearchIntegrationTest,!PostgresIntegrationTest"   # apenas unitários
+./mvnw test                                                     # tudo (integração usa Testcontainers, exige Docker)
+./mvnw test "-Dtest=!JobSearchIntegrationTest,!PostgresIntegrationTest" # apenas unitários
 ```
 
 156 testes unitários cobrindo filtros e validação, normalização, deduplicação, relevância,
