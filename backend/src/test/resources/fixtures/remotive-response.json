@@ -1,0 +1,32 @@
+{
+  "0-legal-notice": "Amostra reduzida usada apenas em teste.",
+  "job-count": 2,
+  "jobs": [
+    {
+      "id": 1234567,
+      "url": "https://remotive.com/remote-jobs/software-dev/java-developer-1234567",
+      "title": "Junior Java Developer",
+      "company_name": "Empresa XYZ",
+      "category": "Software Development",
+      "tags": ["java", "spring boot", "postgresql"],
+      "job_type": "full_time",
+      "publication_date": "2026-08-05T10:15:00",
+      "candidate_required_location": "Brazil",
+      "salary": "USD 40.000 - 55.000",
+      "description": "<p>Buscamos pessoa desenvolvedora <b>Java Júnior</b> com Spring Boot.</p>"
+    },
+    {
+      "id": 7654321,
+      "url": "https://remotive.com/remote-jobs/software-dev/python-engineer-7654321",
+      "title": "Senior Python Engineer",
+      "company_name": "Outra Empresa",
+      "category": "Software Development",
+      "tags": ["python", "django", "aws"],
+      "job_type": "full_time",
+      "publication_date": "2026-08-01T08:00:00",
+      "candidate_required_location": "Worldwide",
+      "salary": "",
+      "description": "<p>Vaga sênior de Python com Django e AWS.</p>"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+spring:
+  datasource:
+    hikari:
+      # Teste não precisa de pool de produção: menos conexões sobem mais rápido, e
+      # falhar em 5s dá retorno imediato em vez de esperar o minuto de tolerância que
+      # existe para o banco demorar a subir em produção.
+      maximum-pool-size: 4
+      minimum-idle: 1
+      initialization-fail-timeout: 5000
+
+techjobs:
+  encryption:
+    # Chave fixa de teste. Vale só aqui: o valor está no repositório, o que é exatamente o
+    # que nunca pode acontecer com a chave de produção.
+    keys:
+      v1: Y2hhdmUtZGUtZGVzZW52b2x2aW1lbnRvLTMyYnl0ZXM=
+    active-key-id: v1
+    # A recifragem existe como bean, mas o relógio fica longe: quem a dispara nos testes é
+    # a chamada explícita, para o resultado não depender de temporização.
+    reencryption-enabled: true
+    reencryption-interval: 1h
+    reencryption-initial-delay: 1h
+  scraper:
+    # Nenhum teste faz requisição real; os scrapers ficam desligados por padrão.
+    enabled: false
+    harvest:
+      enabled: false
+  scheduler:
+    enabled: false
+  scraping:
+    worker:
+      # O laço automático fica desligado: quem dispara um ciclo nos testes é a chamada
+      # explícita, para o resultado não depender de temporização. O caminho executado é o
+      # mesmo de produção — claim, execução, conclusão.
+      enabled: false
+      concurrency: 2
+      max-attempts: 3
+      initial-backoff: 30s
+      max-backoff: 10m
+      throttled-backoff: 5m
+      lease-margin: 1m
+      execution-timeout-margin: 10s
+  search:
+    cache-ttl: 1m
+    on-demand-budget: 5s
+
+logging:
+  level:
+    com.techjobs.finder: WARN
+    org.hibernate.SQL: WARN

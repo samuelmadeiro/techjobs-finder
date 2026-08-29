@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>We Work Remotely: Remote Programming Jobs</title>
+    <link>https://weworkremotely.com/categories/remote-programming-jobs</link>
+    <item>
+      <title>Empresa XYZ: Junior Java Developer</title>
+      <region>Anywhere (100% Remote)</region>
+      <category>Full-Stack Programming</category>
+      <description><![CDATA[<p>Vaga para pessoa desenvolvedora Java com Spring Boot e PostgreSQL.</p>]]></description>
+      <pubDate>Wed, 05 Aug 2026 12:00:00 +0000</pubDate>
+      <link>https://weworkremotely.com/remote-jobs/empresa-xyz-junior-java-developer</link>
+      <guid>https://weworkremotely.com/remote-jobs/empresa-xyz-junior-java-developer</guid>
+    </item>
+    <item>
+      <title>Outra Empresa: Senior Rust Engineer</title>
+      <region>Europe Only</region>
+      <category>Back-End Programming</category>
+      <description><![CDATA[<p>Rust, Kubernetes e AWS.</p>]]></description>
+      <pubDate>Mon, 03 Aug 2026 09:30:00 +0000</pubDate>
+      <link>https://weworkremotely.com/remote-jobs/outra-empresa-senior-rust-engineer</link>
+      <guid>https://weworkremotely.com/remote-jobs/outra-empresa-senior-rust-engineer</guid>
+    </item>
+    <item>
+      <title>Item quebrado sem link</title>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,32 @@
+{
+  "jobs": [
+    {
+      "guid": "https://himalayas.app/companies/empresa-xyz/jobs/backend-engineer",
+      "title": "Backend Engineer",
+      "companyName": "Empresa XYZ",
+      "excerpt": "Java, Spring Boot e PostgreSQL.",
+      "description": "<p>Procuramos alguém com 4 anos de experiência em Java.</p>",
+      "pubDate": 1786000000,
+      "applicationLink": "https://himalayas.app/companies/empresa-xyz/jobs/backend-engineer",
+      "locationRestrictions": ["Brazil", "LATAM"],
+      "categories": ["Software Engineering"],
+      "seniority": ["Mid-level"],
+      "minSalary": 60000,
+      "maxSalary": 90000
+    },
+    {
+      "guid": "https://himalayas.app/companies/outra/jobs/intern-data",
+      "title": "Data Engineering Intern",
+      "companyName": "Outra Empresa",
+      "excerpt": "Python e SQL.",
+      "description": "<p>Vaga para quem está cursando graduação. Oferecemos bolsa auxílio.</p>",
+      "pubDate": 1785000000,
+      "applicationLink": "https://himalayas.app/companies/outra/jobs/intern-data",
+      "locationRestrictions": ["Anywhere"],
+      "categories": ["Data Science"],
+      "seniority": ["Entry-level"],
+      "minSalary": 0,
+      "maxSalary": 0
+    }
+  ]
+}
