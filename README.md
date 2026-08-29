@@ -33,6 +33,7 @@ lugar nenhum do fluxo — apenas em fixtures de teste.
 - [Como adicionar um novo scraper](#como-adicionar-um-novo-scraper)
 - [Testes](#testes)
 - [Limitações conhecidas](#limitações-conhecidas)
+- [Fontes e termos](#fontes-e-termos)
 - [Cuidados legais no scraping](#cuidados-legais-no-scraping)
 
 ---
@@ -977,10 +978,11 @@ docker run --rm -v "$PWD/backend:/build" -w /build maven:3.9-eclipse-temurin-21 
 
 ## Limitações conhecidas
 
-- **Fontes disponíveis.** O projeto usa apenas fontes que permitem acesso automatizado:
-  Arbeitnow, Jobicy, Himalayas, RemoteOK e We Work Remotely (feeds RSS). Sites como LinkedIn,
-  Indeed e Gupy proíbem coleta automatizada em seus termos e/ou `robots.txt` e **não** estão
-  implementados.
+- **Fontes disponíveis.** Ficam ligadas apenas as fontes que permitem acesso automatizado:
+  Arbeitnow, RemoteOK, Jobicy e We Work Remotely. Remotive e Himalayas têm scraper pronto, mas
+  vêm desligadas por causa dos termos delas — ver [Fontes e termos](#fontes-e-termos). Sites como
+  LinkedIn, Indeed e Gupy proíbem coleta automatizada em seus termos e/ou `robots.txt` e **não**
+  estão implementados.
 - **Filtro de nível inclui os adjacentes.** Pedir "Estágio" também traz Trainee e vagas com
   nível indefinido — a relevância coloca as realmente compatíveis em primeiro. É proposital:
   descartar `UNKNOWN` esconderia vagas boas apenas por serem mal descritas. Para ver só o nível
@@ -1021,6 +1023,34 @@ docker run --rm -v "$PWD/backend:/build" -w /build maven:3.9-eclipse-temurin-21 
   esse tempo logo depois de uma ingestão.
 
 ---
+
+## Fontes e termos
+
+Cada fonte é consumida pela API pública ou pelo feed RSS oficial dela — nenhuma página HTML
+é raspada. O estado abaixo reflete a leitura dos termos de uso de cada uma em agosto de 2026;
+antes de ligar uma fonte desligada, releia os termos dela.
+
+| Fonte | Endpoint | Padrão | Termos |
+|---|---|---|---|
+| [Arbeitnow](https://www.arbeitnow.com) | `/api/job-board-api` | ligada | API pública, sem restrição declarada |
+| [RemoteOK](https://remoteok.com) | `/api` | ligada | exige menção da fonte e link direto para o anúncio |
+| [We Work Remotely](https://weworkremotely.com) | RSS oficial | ligada | RSS liberado com atribuição; scraping de HTML proíbido |
+| [Jobicy](https://jobicy.com) | `/jobs-rss-feed` | ligada | atribuição obrigatória; pede consulta poucas vezes ao dia |
+| [Remotive](https://remotive.com) | `/api/remote-jobs` | **desligada** | `robots.txt` passou a proibir `/api` |
+| [Himalayas](https://himalayas.app) | `/jobs/api` | **desligada** | termos proíbem coleta automatizada |
+
+O que o projeto faz para cumprir isso:
+
+- **Atribuição.** Todo resultado mostra `via <fonte>` e o botão "Ver vaga" aponta direto para o
+  anúncio original, sem redirecionamento intermediário — o que RemoteOK, Jobicy e We Work
+  Remotely exigem.
+- **Frequência.** Coleta de rotina a cada 4 horas e varredura profunda uma vez por dia, alinhado
+  ao "algumas vezes por dia" que Jobicy e Remotive pedem nos termos.
+- **Fontes declaradas.** Toda fonte tem entrada explícita em `techjobs.scraper.sources`, ligada ou
+  não. Sem entrada, um scraper novo herdaria `enabled=true` do contrato e passaria a coletar sem
+  aparecer na configuração.
+- **Redistribuição.** As vagas são exibidas na própria aplicação e não repassadas a agregadores
+  como Google Jobs, LinkedIn ou Jooble, o que Remotive e Jobicy vedam expressamente.
 
 ## Cuidados legais no scraping
 

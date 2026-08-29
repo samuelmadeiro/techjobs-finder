@@ -245,10 +245,20 @@ techjobs:
       # Abaixo desse total de vagas ativas, a varredura roda já na subida da aplicação.
       bootstrap-threshold: 300
     sources:
+      # Toda fonte fica declarada aqui, ligada ou não: sem entrada, o scraper herda
+      # enabled=true do contrato e passa a coletar sem aparecer na configuração.
+      #
       # Desligada por padrão: em 2026-08 o robots.txt da Remotive passou a proibir /api.
       # O código do scraper segue no projeto como referência; reative apenas se o site
       # voltar a permitir acesso automatizado.
       remotive:
+        enabled: false
+      # Desligada por padrão: os termos da Himalayas proíbem coleta automatizada
+      # ("You may not use data mining, robots, screen scraping, or similar automated
+      # data gathering, extraction or publication tools on this Site"), e a cláusula
+      # é ampla o bastante para alcançar o endpoint público /jobs/api. Reative apenas
+      # com autorização expressa da fonte.
+      himalayas:
         enabled: false
       arbeitnow:
         enabled: true
@@ -257,6 +267,8 @@ techjobs:
       remoteok:
         enabled: true
       weworkremotely:
+        enabled: true
+      jobicy:
         enabled: true
   scraping:
     worker:
@@ -279,9 +291,11 @@ techjobs:
       history-retention: 7d
   scheduler:
     enabled: ${SCHEDULER_ENABLED:true}
-    refresh-cron: "0 */30 * * * *"
-    # Varredura profunda a cada 4 horas: enche a base sem martelar as fontes.
-    harvest-cron: "0 20 */4 * * *"
+    # De 4 em 4 horas. Jobicy e Remotive pedem, nos termos, que o feed seja consultado
+    # apenas algumas vezes por dia; as demais fontes seguem a mesma norma informal.
+    refresh-cron: "0 0 */4 * * *"
+    # Varredura profunda uma vez por dia, de madrugada.
+    harvest-cron: "0 20 3 * * *"
     cleanup-cron: "0 15 4 * * *"
     # Vaga não vista pelas fontes por esse período é desativada.
     stale-after: 14d
