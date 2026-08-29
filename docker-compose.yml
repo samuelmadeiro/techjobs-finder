@@ -1,0 +1,96 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: techjobs-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-techjobs}
+      POSTGRES_USER: ${POSTGRES_USER:-techjobs}
+      # Sem valor padrão de propósito: a senha vem do .env e falha alto se faltar.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-techjobs} -d ${POSTGRES_DB:-techjobs}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # Porta exposta só no loopback: o banco não precisa ficar acessível na rede.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: techjobs-redis
+    # Cache, não banco: sem persistência em disco e com teto de memória. Ao encher,
+    # descarta a chave menos usada em vez de recusar escrita — perder cache é
+    # aceitável, travar a aplicação não.
+    command: >-
+      redis-server
+      --save ""
+      --appendonly no
+      --maxmemory ${REDIS_MAX_MEMORY:-256mb}
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    # Não publica porta: só o backend precisa alcançar o Redis, pela rede do compose.
+    expose:
+      - "6379"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: techjobs-backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-techjobs}
+      DATABASE_USER: ${POSTGRES_USER:-techjobs}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081}
+      SCRAPERS_ENABLED: ${SCRAPERS_ENABLED:-true}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      HARVEST_ENABLED: ${HARVEST_ENABLED:-true}
+      SCRAPER_USER_AGENT: ${SCRAPER_USER_AGENT:-TechJobsFinder/0.1 (+https://github.com/techjobs-finder)}
+      RESUME_MAX_FILE_SIZE: ${RESUME_MAX_FILE_SIZE:-5MB}
+      RESUME_RETENTION: ${RESUME_RETENTION:-180d}
+      RESUME_ENCRYPTION_KEY_V1: ${RESUME_ENCRYPTION_KEY_V1:?defina RESUME_ENCRYPTION_KEY_V1 no arquivo .env (openssl rand -base64 32)}
+      RESUME_ENCRYPTION_ACTIVE_KEY: ${RESUME_ENCRYPTION_ACTIVE_KEY:-v1}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      AUTH_SESSION_TIMEOUT: ${AUTH_SESSION_TIMEOUT:-30d}
+      AUTH_SESSION_IDLE: ${AUTH_SESSION_IDLE:-7d}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RESUME_UPLOAD_BURST: ${RESUME_UPLOAD_BURST:-5}
+      RESUME_UPLOAD_PERIOD: ${RESUME_UPLOAD_PERIOD:-10m}
+      # Host vazio desliga o Redis e a aplicação usa o cache em memória.
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Vazio = chamadas relativas passando pelo proxy /api do nginx. O Vite embute o
+        # valor no bundle, então isto é argumento de build e não variável de runtime.
+        VITE_API_URL: ${VITE_API_URL:-}
+    container_name: techjobs-frontend
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-8081}:8081"
+    restart: unless-stopped
+
+volumes:
+  db-data:
