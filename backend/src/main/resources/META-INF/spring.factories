@@ -1,0 +1,4 @@
+# EnvironmentPostProcessor roda antes de qualquer bean existir; é o único gancho capaz de
+# desligar um autoconfigure a partir do valor de uma variável de ambiente.
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.techjobs.finder.config.OptionalRedisEnvironmentPostProcessor

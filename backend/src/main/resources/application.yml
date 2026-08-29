@@ -1,0 +1,293 @@
+spring:
+  application:
+    name: techjobs-finder
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/techjobs}
+    username: ${DATABASE_USER:techjobs}
+    password: ${DATABASE_PASSWORD:}
+    hikari:
+      pool-name: techjobs-pool
+      # O Postgres padrão aceita 100 conexões. Este teto deixa folga para migrations,
+      # psql e uma segunda instância da aplicação sem esgotar o servidor.
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      # Igual ao máximo: pool de tamanho fixo evita a latência de abrir conexão bem no
+      # meio de um pico, que é exatamente quando ela custa mais caro.
+      minimum-idle: ${DB_POOL_SIZE:10}
+      # Os tempos do Hikari vão em milissegundos: a classe é de terceiros e recebe
+      # long direto, sem a conversão de Duration que o Spring faz nas suas próprias
+      # propriedades. Escrever "10s" aqui derruba a aplicação na subida.
+      #
+      # Quanto uma thread espera por conexão livre antes de desistir (10s). Menor que o
+      # read-timeout do cliente: melhor um erro tratado do que a requisição pendurada.
+      connection-timeout: 10000
+      validation-timeout: 3000
+      # 25 min, abaixo do timeout de proxies e do Postgres, para que quem descarta a
+      # conexão seja o pool e não a rede no meio de uma query. Com minimum-idle igual
+      # ao máximo o pool é fixo, então idle-timeout não teria efeito e ficou de fora.
+      max-lifetime: 1500000
+      # Sonda a cada 2 min: conexão morta por firewall ou restart do banco é detectada
+      # antes de chegar numa requisição de usuário.
+      keepalive-time: 120000
+      # Conexão emprestada por mais de 30s indica vazamento; o aviso sai no log com a
+      # stack de quem pegou. Não fecha nada, só denuncia.
+      leak-detection-threshold: 30000
+      # Banco indisponível na subida não deve virar crashloop: a aplicação tenta por
+      # até um minuto antes de desistir. Erro de credencial continua falhando alto,
+      # só que com uma mensagem no log em vez de reinícios em série.
+      initialization-fail-timeout: 60000
+      data-source-properties:
+        # Cache de prepared statements no driver, do lado do servidor.
+        prepareThreshold: 3
+        preparedStatementCacheQueries: 256
+        preparedStatementCacheSizeMiB: 5
+        # Rede: nenhuma query deve segurar uma conexão indefinidamente.
+        tcpKeepAlive: true
+        socketTimeout: 60
+        loginTimeout: 10
+        ApplicationName: techjobs-finder
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+          # Instant <-> timestamptz sem depender do fuso da JVM nem do servidor.
+          time_zone: UTC
+          # Linhas trazidas por ida ao banco em consultas grandes (varredura, catálogo).
+          fetch_size: 100
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+        query:
+          # A busca monta um IN com um número variável de ids; sem o padding, cada
+          # tamanho diferente gera um plano novo no cache. Arredondar para potências
+          # de dois reduz isso a poucas variações.
+          in_clause_parameter_padding: true
+        # Coleções lazy do mesmo tipo são carregadas em lote em vez de uma por vez.
+        default_batch_fetch_size: 32
+  data:
+    redis:
+      # Host vazio = sem Redis; a aplicação usa cache em memória e sobe normalmente.
+      host: ${REDIS_HOST:}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      # Cache não pode segurar a requisição: se o Redis não responde rápido, o
+      # tratador de erro deixa a chamada seguir para o banco. 1s é folga enorme para
+      # um Redis na mesma rede (responde em milissegundos) e limita a espera quando
+      # ele está fora — a requisição paga esse tempo na leitura e de novo na gravação.
+      timeout: 1s
+      connect-timeout: 1s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 2s
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # O compose já espera o healthcheck do banco, mas em outros ambientes (Kubernetes,
+    # máquina do desenvolvedor) a aplicação pode subir antes. Tentar de novo é mais
+    # barato que reiniciar o contêiner inteiro.
+    connect-retries: 10
+    connect-retries-interval: 5s
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      # Teto do contêiner web. O limite de negócio (5 MB) é validado no ResumeService;
+      # esta folga existe só para o erro chegar como mensagem tratada, e não como reset.
+      max-file-size: 6MB
+      max-request-size: 8MB
+      file-size-threshold: 1MB
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      # Sem autenticação na API, o detalhe do health vazaria versão do banco e nomes
+      # internos para qualquer um. O diagnóstico fica nas métricas e no log.
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        # Liveness responde "o processo está vivo" e não depende do banco: derrubar o
+        # contêiner porque o Postgres piscou só piora a indisponibilidade.
+        liveness:
+          include: livenessState
+        # Readiness responde "dá para atender requisição agora", e sem banco não dá.
+        readiness:
+          include: readinessState, db
+  health:
+    db:
+      enabled: true
+  metrics:
+    tags:
+      application: techjobs-finder
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+techjobs:
+  cache:
+    key-prefix: techjobs
+    default-ttl: 10m
+    ttls:
+      # Contagem de vagas por tecnologia: agregação cara, muda só quando entra vaga
+      # nova — e nesse caso a ingestão invalida o cache explicitamente.
+      catalog: 10m
+      # Status da última coleta muda a cada rodada do scheduler; TTL curto para a
+      # tela de fontes não mostrar informação velha.
+      sources: 1m
+      # Páginas de busca já montadas. Igual ao fresh-ttl da busca: passado esse tempo, a
+      # próxima requisição remonta a página a partir do banco e agenda a coleta.
+      search: 10m
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8081}
+  auth:
+    cookie-name: tjf_session
+    # Secure ligado por padrão. Só desligue em desenvolvimento sobre HTTP: sem HTTPS o
+    # navegador simplesmente não guarda um cookie marcado como Secure.
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    # Prazo absoluto da sessão, mesmo em uso contínuo.
+    absolute-timeout: ${AUTH_SESSION_TIMEOUT:30d}
+    # Prazo sem nenhuma requisição.
+    idle-timeout: ${AUTH_SESSION_IDLE:7d}
+    # Folga antes de regravar "visto por último": sem ela, toda leitura autenticada viraria
+    # uma escrita no banco.
+    touch-interval: 5m
+  rate-limit:
+    # Só o upload de currículo é limitado: é a única rota sem autenticação que grava
+    # arquivo, cria usuário e roda extração de texto.
+    resume-upload:
+      enabled: ${RATE_LIMIT_ENABLED:true}
+      # Cinco envios seguidos cobrem tentativa, correção e reenvio; o balde repõe sozinho.
+      capacity: ${RESUME_UPLOAD_BURST:5}
+      period: ${RESUME_UPLOAD_PERIOD:10m}
+      retain-idle-for: 1d
+  encryption:
+    # Chaves do currículo, em Base64 de 32 bytes (AES-256). Vêm do ambiente: um dump do
+    # banco não pode vir acompanhado da chave que o abre.
+    #
+    # Rotação: adicione a chave nova, aponte active-key-id para ela e mantenha a antiga
+    # configurada — ela continua decifrando o acervo enquanto a recifragem converte tudo.
+    keys:
+      v1: ${RESUME_ENCRYPTION_KEY_V1:}
+    active-key-id: ${RESUME_ENCRYPTION_ACTIVE_KEY:v1}
+    # Converte para cifrado o que ficou em claro antes da V7.
+    reencryption-enabled: ${RESUME_REENCRYPTION_ENABLED:true}
+    reencryption-interval: 5m
+  resume:
+    # Prazo de guarda do currículo (dado pessoal). Depois disso a limpeza diária apaga o
+    # registro, o arquivo e o usuário que ficar sem nenhum currículo.
+    retention: ${RESUME_RETENTION:180d}
+    max-file-size: ${RESUME_MAX_FILE_SIZE:5MB}
+    allowed-extensions: pdf,docx
+    allowed-content-types: >-
+      application/pdf,
+      application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    max-text-length: 200000
+    # Pesos do cálculo de compatibilidade currículo x vaga. Somam 100.
+    # Alterar aqui muda o ranking sem recompilar nada.
+    weights:
+      skills: 50
+      experience: 20
+      work-model: 10
+      location: 10
+      related-technologies: 10
+  search:
+    # Máximo de vagas candidatas carregadas do banco antes de pontuar relevância.
+    # Acompanha o crescimento da base: com milhares de vagas, um teto baixo cortaria
+    # resultados bons antes mesmo da pontuação.
+    candidate-limit: 2000
+    max-page-size: 100
+    # Abaixo deste tempo o resultado é servido como está e nenhuma coleta é disparada.
+    fresh-ttl: ${SEARCH_FRESH_TTL:10m}
+    # Entre fresh e stale, o resultado sai na hora e a coleta acontece em segundo plano.
+    stale-ttl: ${SEARCH_STALE_TTL:30m}
+    # Mantido para a limpeza de marcadores antigos no scheduler.
+    cache-ttl: 30m
+    # Orçamento total de tempo para scraping sob demanda dentro de uma requisição HTTP.
+    on-demand-budget: 20s
+  scraper:
+    enabled: ${SCRAPERS_ENABLED:true}
+    user-agent: ${SCRAPER_USER_AGENT:TechJobsFinder/0.1 (+https://github.com/techjobs-finder; contato@example.com)}
+    connect-timeout: 5s
+    read-timeout: 15s
+    max-retries: 2
+    retry-backoff: 800ms
+    # Intervalo mínimo entre requisições para o mesmo host (rate limiting por fonte).
+    min-request-interval: 1200ms
+    max-results-per-source: 500
+    respect-robots-txt: true
+    robots-cache-ttl: 6h
+    parallelism: 6
+    harvest:
+      enabled: ${HARVEST_ENABLED:true}
+      # Varredura profunda: limites bem maiores que os da busca sob demanda.
+      max-results-per-source: 5000
+      max-pages: 25
+      # Abaixo desse total de vagas ativas, a varredura roda já na subida da aplicação.
+      bootstrap-threshold: 300
+    sources:
+      # Desligada por padrão: em 2026-08 o robots.txt da Remotive passou a proibir /api.
+      # O código do scraper segue no projeto como referência; reative apenas se o site
+      # voltar a permitir acesso automatizado.
+      remotive:
+        enabled: false
+      arbeitnow:
+        enabled: true
+        # A API devolve 429 com o intervalo global; precisa de mais folga entre páginas.
+        min-request-interval: 3s
+      remoteok:
+        enabled: true
+      weworkremotely:
+        enabled: true
+  scraping:
+    worker:
+      enabled: ${SCRAPING_WORKER_ENABLED:true}
+      # Coletas simultâneas por instância. Conservador de propósito: cada uma já abre até
+      # techjobs.scraper.parallelism (6) conexões para as fontes. Subir isto não coleta mais
+      # rápido — as fontes têm limitador próprio e devolvem 429.
+      concurrency: ${SCRAPING_WORKER_CONCURRENCY:2}
+      poll-interval: 5s
+      initial-delay: 10s
+      max-attempts: ${SCRAPING_MAX_ATTEMPTS:3}
+      initial-backoff: 30s
+      max-backoff: 10m
+      # Fonte que respondeu 429 espera bem mais que o backoff comum.
+      throttled-backoff: 5m
+      # Folga da lease sobre o orçamento da coleta: cobre a ingestão, que em varredura
+      # profunda grava milhares de vagas depois de a rede terminar.
+      lease-margin: 5m
+      execution-timeout-margin: 2m
+      history-retention: 7d
+  scheduler:
+    enabled: ${SCHEDULER_ENABLED:true}
+    refresh-cron: "0 */30 * * * *"
+    # Varredura profunda a cada 4 horas: enche a base sem martelar as fontes.
+    harvest-cron: "0 20 */4 * * *"
+    cleanup-cron: "0 15 4 * * *"
+    # Vaga não vista pelas fontes por esse período é desativada.
+    stale-after: 14d
+    # Vaga desativada é removida depois desse período.
+    purge-after: 60d
+
+logging:
+  level:
+    com.techjobs.finder: ${LOG_LEVEL:INFO}
