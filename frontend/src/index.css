@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Design system
+   --------------------------------------------------------------------------
+   Todo valor de cor, raio, sombra e transição usado na interface é declarado
+   aqui e consumido como utilitário Tailwind. Nada de número solto no meio de
+   um componente: mudar o tom da marca ou a curva de animação é mexer em uma
+   linha deste arquivo, não caçar ocorrências pelo projeto.
+   ========================================================================== */
+
+@theme {
+  /* --- Marca: azul tecnológico, do claro de fundo ao escuro de texto ------ */
+  --color-brand-50: oklch(0.972 0.014 254);
+  --color-brand-100: oklch(0.936 0.032 252);
+  --color-brand-200: oklch(0.883 0.059 252);
+  --color-brand-300: oklch(0.809 0.096 251);
+  --color-brand-400: oklch(0.708 0.145 254);
+  --color-brand-500: oklch(0.623 0.188 259);
+  --color-brand-600: oklch(0.546 0.215 263);
+  --color-brand-700: oklch(0.488 0.211 264);
+  --color-brand-800: oklch(0.424 0.178 266);
+  --color-brand-900: oklch(0.379 0.138 265);
+  --color-brand-950: oklch(0.282 0.091 267);
+
+  /* --- Raios ------------------------------------------------------------- */
+  --radius-card: 0.875rem;
+  --radius-control: 0.625rem;
+
+  /* --- Sombras: discretas. Elevação aqui é sinal de interação, não enfeite. */
+  --shadow-subtle: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+  --shadow-lifted: 0 8px 24px -8px rgb(15 23 42 / 0.14), 0 2px 6px -2px rgb(15 23 42 / 0.06);
+  --shadow-overlay: 0 24px 48px -12px rgb(15 23 42 / 0.28);
+
+  /* --- Movimento: curto e com propósito ---------------------------------- */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: fade-in 0.18s ease-out;
+  --animate-slide-up: slide-up 0.24s var(--ease-out-soft);
+  --animate-slide-in-right: slide-in-right 0.26s var(--ease-out-soft);
+  --animate-slide-in-bottom: slide-in-bottom 0.26s var(--ease-out-soft);
+  --animate-toast-in: toast-in 0.22s var(--ease-out-soft);
+  --animate-expand: expand 0.2s var(--ease-out-soft);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: none; }
+}
+
+@keyframes slide-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes expand {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 40rem; }
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Rolagem vertical sempre reservada: a barra aparecendo e sumindo entre
+       telas fazia o layout inteiro deslocar alguns pixels. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+    /* Nenhum layout deve produzir rolagem lateral; se produzir, é bug. */
+    overflow-x: hidden;
+  }
+
+  /* Foco visível e consistente em tudo que recebe teclado. O anel do
+     navegador varia entre plataformas e às vezes some sobre fundo escuro. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    @apply outline-none ring-2 ring-brand-500/60 ring-offset-2 ring-offset-white;
+  }
+
+  /* Quem pediu menos movimento no sistema recebe menos movimento. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Barra de rolagem interna dos painéis: a nativa do Windows é larga demais
+     e rouba atenção dentro de um drawer estreito. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-300) transparent;
+  }
+
+  .scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scroll-slim::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
